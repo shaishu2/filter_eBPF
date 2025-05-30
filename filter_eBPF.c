@@ -63,35 +63,22 @@ int xdp_cip_filter(struct xdp_md *ctx) {
     if (ptr + sizeof(struct erspan_hdr_t) > data_end)
         return XDP_PASS;
     ptr += sizeof(struct erspan_hdr_t);
-    
-    // Adjust the packet data pointer and length to remove ERSPAN and GRE headers
-    __u64 offset = ptr - data;
-    if (bpf_xdp_adjust_head(ctx, offset)) {
-        return XDP_ABORTED;
-    }
 
-    data = (void *)(long)ctx->data;
-    data_end = (void *)(long)ctx->data_end;
-
-    if (data + sizeof(struct ethhdr) > data_end)
+    if (ptr + sizeof(struct ethhdr) > data_end)
         return XDP_PASS;
-    
-    eth = data;
-    //ptr += sizeof(*eth);
+    eth = ptr;
+    ptr += sizeof(*eth);
     if (eth->h_proto != __constant_htons(ETH_P_IP))
         return XDP_PASS;
 
-    iph = data + sizeof(*eth);
-    if ((void *)iph + sizeof(*iph) > data_end)
+    if (ptr + sizeof(struct iphdr) > data_end)
         return XDP_PASS;
-    //iph = ptr;
+    iph = ptr;
     if (iph->protocol != IPPROTO_TCP)
         return XDP_PASS;
-    
-    struct tcphdr *tcph = (void *)iph + iph->ihl * 4;
-    //ptr += iph->ihl * 4;
+    ptr += iph->ihl * 4;
 
-    if ((void *)tcph + sizeof(*tcph) > data_end)
+    if (ptr + sizeof(struct tcphdr) > data_end)
         return XDP_PASS;
     struct tcphdr *tcph = ptr;
     ptr += tcph->doff * 4;
